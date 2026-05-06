@@ -1,0 +1,3 @@
+-keep class com.shiftmate.** { *; }
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
