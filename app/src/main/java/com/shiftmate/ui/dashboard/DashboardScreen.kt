@@ -130,7 +130,7 @@ private fun StatBox(modifier: Modifier, value: String, unit: String, label: Stri
             Spacer(Modifier.height(8.dp))
             Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
             Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.Baseline) {
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                 if (unit.isNotEmpty()) {
                     Spacer(Modifier.width(2.dp))

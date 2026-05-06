@@ -1,6 +1,7 @@
 package com.shiftmate.data.repository
 
 import com.shiftmate.data.local.dao.*
+import com.shiftmate.data.local.entity.ShiftRequestEntity
 import com.shiftmate.domain.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
