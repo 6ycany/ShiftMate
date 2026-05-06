@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 📋 シフト表アイコン（白いグリッド） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,28 L78,28 L78,34 L30,34 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,40 L78,40 L78,46 L30,46 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,52 L78,52 L78,58 L30,58 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,64 L78,64 L78,70 L30,70 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,76 L78,76 L78,82 L30,82 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,28 L36,28 L36,82 L30,82 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,28 L52,28 L52,82 L46,82 Z" />
+</vector>
