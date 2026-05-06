@@ -19,9 +19,9 @@ import com.shiftmate.ui.staff.StaffScreen
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     object Staff : Screen("staff", "スタッフ", Icons.Filled.People)
     object Rules : Screen("rules", "ルール", Icons.Filled.Settings)
-    object Request : Screen("request", "希望休", Icons.Filled.CalendarMonth)
-    object Shift : Screen("shift", "シフト", Icons.Filled.GridOn)
-    object Dashboard : Screen("dashboard", "集計", Icons.Filled.BarChart)
+    object Request : Screen("request", "希望休", Icons.Filled.CalendarToday)
+    object Shift : Screen("shift", "シフト", Icons.Filled.TableChart)
+    object Dashboard : Screen("dashboard", "集計", Icons.Filled.Analytics)
 }
 
 private val bottomNavItems = listOf(
