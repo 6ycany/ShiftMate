@@ -11,6 +11,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import com.shiftmate.ui.dashboard.DashboardScreen
+import com.shiftmate.ui.help.HelpScreen
 import com.shiftmate.ui.request.RequestScreen
 import com.shiftmate.ui.rules.RulesScreen
 import com.shiftmate.ui.shift.ShiftScreen
@@ -31,25 +32,29 @@ private val bottomNavItems = listOf(
 @Composable
 fun ShiftMateNavHost() {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute != "help"
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDest = navBackStackEntry?.destination
-                bottomNavItems.forEach { screen ->
-                    NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = screen.label) },
-                        label = { Text(screen.label) },
-                        selected = currentDest?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+            if (showBottomBar) {
+                NavigationBar {
+                    val currentDest = navBackStackEntry?.destination
+                    bottomNavItems.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { Icon(screen.icon, contentDescription = screen.label) },
+                            label = { Text(screen.label) },
+                            selected = currentDest?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -59,11 +64,14 @@ fun ShiftMateNavHost() {
             startDestination = Screen.Staff.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Staff.route) { StaffScreen() }
+            composable(Screen.Staff.route) {
+                StaffScreen(onNavigateToHelp = { navController.navigate("help") })
+            }
             composable(Screen.Rules.route) { RulesScreen() }
             composable(Screen.Request.route) { RequestScreen() }
             composable(Screen.Shift.route) { ShiftScreen() }
             composable(Screen.Dashboard.route) { DashboardScreen() }
+            composable("help") { HelpScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }

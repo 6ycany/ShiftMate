@@ -40,6 +40,9 @@ class ShiftViewModel @Inject constructor(
     private val _generated = MutableStateFlow(false)
     val generated: StateFlow<Boolean> = _generated
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
     init {
         viewModelScope.launch {
             _month.collectLatest { month ->
@@ -51,11 +54,22 @@ class ShiftViewModel @Inject constructor(
 
     fun prevMonth() { _month.value = _month.value.minusMonths(1) }
     fun nextMonth() { _month.value = _month.value.plusMonths(1) }
+    fun clearError() { _errorMessage.value = null }
 
     fun generateShifts() = viewModelScope.launch {
-        val month = _month.value
         val allStaff = staff.value
         val allBlocks = blocks.value
+
+        if (allStaff.isEmpty()) {
+            _errorMessage.value = "スタッフが登録されていません。\n「スタッフ」タブからスタッフを追加してください。"
+            return@launch
+        }
+        if (allBlocks.isEmpty()) {
+            _errorMessage.value = "時間帯（シフト区分）が設定されていません。\n「ルール」タブから早番・遅番などの時間帯を追加してください。"
+            return@launch
+        }
+
+        val month = _month.value
         val shiftRule = rule.value ?: ShiftRule()
         val requests = repo.getRequestsByMonth(month.toString())
 

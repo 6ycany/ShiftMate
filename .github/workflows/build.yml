@@ -32,6 +32,24 @@ jobs:
       - name: Install Android SDK 35
         run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Generate mipmap launcher icons
+        run: |
+          SRC="app/src/main/res/drawable-nodpi/ic_launcher_source.png"
+          declare -A SIZES=(
+            [mipmap-mdpi]=48
+            [mipmap-hdpi]=72
+            [mipmap-xhdpi]=96
+            [mipmap-xxhdpi]=144
+            [mipmap-xxxhdpi]=192
+          )
+          for dir in "${!SIZES[@]}"; do
+            size=${SIZES[$dir]}
+            dest="app/src/main/res/$dir"
+            mkdir -p "$dest"
+            convert "$SRC" -resize "${size}x${size}" "$dest/ic_launcher.png"
+            convert "$SRC" -resize "${size}x${size}" "$dest/ic_launcher_round.png"
+          done
+
       - name: Build Debug APK
         run: gradle assembleDebug --stacktrace
 

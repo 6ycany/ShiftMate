@@ -51,6 +51,24 @@ fun RequestScreen(vm: RequestViewModel = hiltViewModel()) {
             )
         }
     ) { padding ->
+        if (staff.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Card(
+                    modifier = Modifier.padding(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
+                ) {
+                    Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFFFB8C00), modifier = Modifier.size(40.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("スタッフが未登録です", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("「スタッフ」タブからスタッフを追加してください。", fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+            return@Scaffold
+        }
+
         LazyColumn(Modifier.padding(padding)) {
             // Month nav
             item {

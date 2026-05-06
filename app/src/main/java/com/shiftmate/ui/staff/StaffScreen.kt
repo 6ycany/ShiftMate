@@ -30,13 +30,17 @@ private val roleColors = listOf(
 )
 
 @Composable
-fun StaffScreen(vm: StaffViewModel = hiltViewModel()) {
+fun StaffScreen(
+    vm: StaffViewModel = hiltViewModel(),
+    onNavigateToHelp: () -> Unit = {}
+) {
     val staff by vm.staff.collectAsState()
     val roles by vm.roles.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showStaffDialog by remember { mutableStateOf(false) }
     var showRoleDialog by remember { mutableStateOf(false) }
+    var showNoRoleError by remember { mutableStateOf(false) }
     var editingStaff by remember { mutableStateOf<Staff?>(null) }
     var editingRole by remember { mutableStateOf<Role?>(null) }
 
@@ -44,6 +48,11 @@ fun StaffScreen(vm: StaffViewModel = hiltViewModel()) {
         topBar = {
             TopAppBar(
                 title = { Text("スタッフ管理") },
+                actions = {
+                    IconButton(onClick = onNavigateToHelp) {
+                        Icon(Icons.Filled.Help, contentDescription = "ヘルプ", tint = Color.White)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White
@@ -52,7 +61,14 @@ fun StaffScreen(vm: StaffViewModel = hiltViewModel()) {
         },
         floatingActionButton = {
             if (selectedTab == 0) {
-                FloatingActionButton(onClick = { editingStaff = null; showStaffDialog = true }) {
+                FloatingActionButton(onClick = {
+                    if (roles.isEmpty()) {
+                        showNoRoleError = true
+                    } else {
+                        editingStaff = null
+                        showStaffDialog = true
+                    }
+                }) {
                     Icon(Icons.Filled.Add, contentDescription = "追加")
                 }
             }
@@ -80,6 +96,22 @@ fun StaffScreen(vm: StaffViewModel = hiltViewModel()) {
                 )
             }
         }
+    }
+
+    if (showNoRoleError) {
+        AlertDialog(
+            onDismissRequest = { showNoRoleError = false },
+            title = { Text("役職が未設定です") },
+            text = { Text("スタッフを追加する前に、まず「役職設定」タブで役職を追加してください。") },
+            confirmButton = {
+                TextButton(onClick = { showNoRoleError = false; selectedTab = 1 }) {
+                    Text("役職設定へ")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoRoleError = false }) { Text("閉じる") }
+            }
+        )
     }
 
     if (showStaffDialog) {
