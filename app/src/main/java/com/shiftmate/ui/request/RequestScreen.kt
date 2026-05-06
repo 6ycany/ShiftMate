@@ -93,7 +93,7 @@ fun RequestScreen(vm: RequestViewModel = hiltViewModel()) {
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item { Text("一括:", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.align(Alignment.CenterVertically)) }
+                        item { Text("一括:", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp)) }
                         item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.AVAILABLE) { true } }) { Text("全日 ○") } }
                         item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.DAY_OFF) { true } }) { Text("全日 ×") } }
                         item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.DAY_OFF) { it.dayOfWeek.value == 7 || it.dayOfWeek.value == 6 } }) { Text("土日 ×") } }
