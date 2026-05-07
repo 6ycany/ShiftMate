@@ -50,6 +50,7 @@ class ShiftRepository @Inject constructor(
 
     // ── ShiftRule ──
     fun ruleFlow(storeId: Long = 1): Flow<ShiftRule?> = ruleDao.getFlow(storeId).map { it?.toDomain() }
+    suspend fun getRule(storeId: Long = 1): ShiftRule? = ruleDao.get(storeId)?.toDomain()
     suspend fun saveRule(rule: ShiftRule) {
         val existing = ruleDao.get(rule.storeId)
         if (existing == null) ruleDao.insert(rule.toEntity()) else ruleDao.update(rule.copy(id = existing.id).toEntity())

@@ -1,5 +1,8 @@
 package com.shiftmate.ui.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,18 +28,32 @@ fun ProfileScreen(
     onBack: () -> Unit
 ) {
     val profiles by vm.profiles.collectAsState()
+    val snackMsg by vm.snackMessage.collectAsState()
+    val context = LocalContext.current
+
     var showSaveDialog by remember { mutableStateOf(false) }
     var loadConfirmTarget by remember { mutableStateOf<ShiftProfile?>(null) }
     var deleteConfirmId by remember { mutableStateOf<Long?>(null) }
-    var snackMessage by remember { mutableStateOf<String?>(null) }
+    var showImportConfirm by remember { mutableStateOf<Uri?>(null) }
+
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(snackMessage) {
-        snackMessage?.let {
+    // Show snackbar when snackMsg changes
+    LaunchedEffect(snackMsg) {
+        snackMsg?.let {
             snackbarHostState.showSnackbar(it)
-            snackMessage = null
+            vm.clearSnack()
         }
     }
+
+    // File picker for JSON import
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) showImportConfirm = uri
+    }
+
+    // ── Dialogs ────────────────────────────────────────────────────
 
     // Save name dialog
     if (showSaveDialog) {
@@ -54,7 +72,11 @@ fun ProfileScreen(
             },
             confirmButton = {
                 TextButton(
-                    onClick = { vm.save(name.trim()); showSaveDialog = false; snackMessage = "「${name.trim()}」を保存しました" },
+                    onClick = {
+                        vm.save(name.trim())
+                        showSaveDialog = false
+                        vm.snackMessage.value = "「${name.trim()}」を保存しました"
+                    },
                     enabled = name.isNotBlank()
                 ) { Text("保存") }
             },
@@ -62,7 +84,7 @@ fun ProfileScreen(
         )
     }
 
-    // Load confirm dialog
+    // Load confirm
     loadConfirmTarget?.let { profile ->
         AlertDialog(
             onDismissRequest = { loadConfirmTarget = null },
@@ -70,14 +92,16 @@ fun ProfileScreen(
             text = { Text("「${profile.name}」を読み込みます。\n現在のスタッフ・役職・ルール設定は上書きされます。よろしいですか？") },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.load(profile); loadConfirmTarget = null; snackMessage = "「${profile.name}」を読み込みました"
+                    vm.load(profile)
+                    loadConfirmTarget = null
+                    vm.snackMessage.value = "「${profile.name}」を読み込みました"
                 }) { Text("読み込む", color = MaterialTheme.colorScheme.primary) }
             },
             dismissButton = { TextButton(onClick = { loadConfirmTarget = null }) { Text("キャンセル") } }
         )
     }
 
-    // Delete confirm dialog
+    // Delete confirm
     deleteConfirmId?.let { id ->
         val target = profiles.find { it.id == id }
         AlertDialog(
@@ -93,6 +117,23 @@ fun ProfileScreen(
         )
     }
 
+    // Import confirm
+    showImportConfirm?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { showImportConfirm = null },
+            title = { Text("設定をインポート") },
+            text = { Text("選択したJSONファイルの設定を読み込みます。\n現在のスタッフ・役職・ルール・時間帯設定はすべて上書きされます。\nよろしいですか？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.importJson(context, uri)
+                    showImportConfirm = null
+                }) { Text("インポートする", color = MaterialTheme.colorScheme.primary) }
+            },
+            dismissButton = { TextButton(onClick = { showImportConfirm = null }) { Text("キャンセル") } }
+        )
+    }
+
+    // ── Main UI ────────────────────────────────────────────────────
     Scaffold(
         topBar = {
             TopAppBar(
@@ -115,20 +156,97 @@ fun ProfileScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        if (profiles.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.Storage, contentDescription = null, modifier = Modifier.size(56.dp), tint = Color.LightGray)
-                    Spacer(Modifier.height(12.dp))
-                    Text("保存済みの設定がありません", color = Color.Gray)
-                    Spacer(Modifier.height(8.dp))
-                    Text("右上のボタンから現在の設定を保存できます。", fontSize = 12.sp, color = Color.Gray)
+        LazyColumn(
+            Modifier.padding(padding),
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+
+            // ── Export / Import card ───────────────────────────────
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.SwapHoriz,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    "外部ファイルへのエクスポート・インポート",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    "JSONファイルとして出力・読み込みができます。バックアップや他の端末への移行に使用できます。",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Export button
+                            Button(
+                                onClick = { vm.exportJson(context) },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Filled.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("エクスポート", fontSize = 13.sp)
+                            }
+                            // Import button
+                            OutlinedButton(
+                                onClick = { importLauncher.launch("application/json") },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("インポート", fontSize = 13.sp)
+                            }
+                        }
+                    }
                 }
             }
-        } else {
-            LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+            // ── Saved profiles ─────────────────────────────────────
+            if (profiles.isEmpty()) {
                 item {
-                    Text("保存済みの設定", style = MaterialTheme.typography.titleSmall, color = Color.Gray)
+                    Box(
+                        Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Filled.Storage,
+                                contentDescription = null,
+                                modifier = Modifier.size(56.dp),
+                                tint = Color.LightGray
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text("保存済みの設定がありません", color = Color.Gray)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "右上のボタンから現在の設定を保存できます。",
+                                fontSize = 12.sp, color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            } else {
+                item {
+                    Text(
+                        "保存済みの設定",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.Gray
+                    )
                 }
                 items(profiles, key = { it.id }) { profile ->
                     ProfileCard(
@@ -154,7 +272,12 @@ private fun ProfileCard(profile: ShiftProfile, onLoad: () -> Unit, onDelete: () 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                Icon(
+                    Icons.Filled.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(profile.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -190,6 +313,11 @@ private fun ProfileChip(label: String) {
         color = MaterialTheme.colorScheme.primaryContainer,
         shape = MaterialTheme.shapes.small
     ) {
-        Text(label, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Text(
+            label,
+            Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }
