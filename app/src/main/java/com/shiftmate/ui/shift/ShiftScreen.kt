@@ -168,7 +168,7 @@ fun ShiftScreen(vm: ShiftViewModel = hiltViewModel()) {
                             Text("CSV")
                         }
                         OutlinedButton(onClick = { vm.exportPdf(context) }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Filled.PictureAsPdf, contentDescription = null)
+                            Icon(Icons.Filled.Description, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
                             Text("PDF")
                         }

@@ -1,11 +1,15 @@
 package com.shiftmate.ui.dashboard
 
+import android.app.Activity
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
+import android.view.PixelCopy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,11 +23,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.layer.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,8 +39,8 @@ fun DashboardScreen(vm: DashboardViewModel = hiltViewModel()) {
     val month by vm.currentMonth.collectAsState()
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
-    val graphicsLayer = rememberGraphicsLayer()
     val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
@@ -48,13 +50,27 @@ fun DashboardScreen(vm: DashboardViewModel = hiltViewModel()) {
                 actions = {
                     if (state.stats.isNotEmpty()) {
                         IconButton(onClick = {
-                            scope.launch {
-                                val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
-                                val saved = saveDashboardImage(context, bitmap, "ShiftMate_${month}.png")
-                                snackbarHostState.showSnackbar(if (saved) "画像をギャラリーに保存しました" else "保存に失敗しました")
-                            }
+                            val activity = context as? Activity ?: return@IconButton
+                            val bmp = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                            val loc = IntArray(2).also { view.getLocationInWindow(it) }
+                            PixelCopy.request(
+                                activity.window,
+                                android.graphics.Rect(loc[0], loc[1], loc[0] + view.width, loc[1] + view.height),
+                                bmp,
+                                { result ->
+                                    val saved = if (result == PixelCopy.SUCCESS)
+                                        saveDashboardImage(context, bmp, "ShiftMate_${month}.png")
+                                    else false
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (saved) "画像をギャラリーに保存しました" else "保存に失敗しました"
+                                        )
+                                    }
+                                },
+                                Handler(Looper.getMainLooper())
+                            )
                         }) {
-                            Icon(Icons.Filled.SaveAlt, contentDescription = "画像保存", tint = Color.White)
+                            Icon(Icons.Filled.Save, contentDescription = "画像保存", tint = Color.White)
                         }
                     }
                 },
@@ -74,12 +90,7 @@ fun DashboardScreen(vm: DashboardViewModel = hiltViewModel()) {
         }
 
         LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .drawWithContent {
-                    graphicsLayer.record { this@drawWithContent.drawContent() }
-                    drawLayer(graphicsLayer)
-                },
+            modifier = Modifier.padding(padding),
             contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -194,7 +205,5 @@ private fun saveDashboardImage(context: Context, bitmap: Bitmap, filename: Strin
             File(dir, filename).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             true
         }
-    } catch (e: Exception) {
-        false
-    }
+    } catch (e: Exception) { false }
 }

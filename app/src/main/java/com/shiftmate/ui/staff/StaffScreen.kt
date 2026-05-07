@@ -51,7 +51,7 @@ fun StaffScreen(
                 title = { Text("スタッフ管理") },
                 actions = {
                     IconButton(onClick = onNavigateToProfile) {
-                        Icon(Icons.Filled.FolderOpen, contentDescription = "設定の保存・読込", tint = Color.White)
+                        Icon(Icons.Filled.Storage, contentDescription = "設定の保存・読込", tint = Color.White)
                     }
                     IconButton(onClick = onNavigateToHelp) {
                         Icon(Icons.Filled.Help, contentDescription = "ヘルプ", tint = Color.White)

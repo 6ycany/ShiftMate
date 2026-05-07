@@ -118,7 +118,7 @@ fun ProfileScreen(
         if (profiles.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(56.dp), tint = Color.LightGray)
+                    Icon(Icons.Filled.Storage, contentDescription = null, modifier = Modifier.size(56.dp), tint = Color.LightGray)
                     Spacer(Modifier.height(12.dp))
                     Text("保存済みの設定がありません", color = Color.Gray)
                     Spacer(Modifier.height(8.dp))
@@ -176,7 +176,7 @@ private fun ProfileCard(profile: ShiftProfile, onLoad: () -> Unit, onDelete: () 
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Filled.FileDownload, contentDescription = null)
+                Icon(Icons.Filled.Download, contentDescription = null)
                 Spacer(Modifier.width(6.dp))
                 Text("この設定を読み込む")
             }
