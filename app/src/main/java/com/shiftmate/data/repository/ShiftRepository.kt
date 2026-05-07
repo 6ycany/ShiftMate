@@ -90,6 +90,21 @@ class ShiftRepository @Inject constructor(
         }
     }
 
+    /** Add a spot/custom shift with explicit start/end times instead of a block */
+    suspend fun setCustomEntry(
+        staffId: Long, date: LocalDate,
+        start: String, end: String, label: String
+    ) {
+        entryDao.deleteByStaffAndDate(staffId, date.toString())
+        entryDao.insert(
+            ShiftEntryEntity(
+                staffId = staffId, blockId = null, date = date.toString(),
+                customStart = start, customEnd = end,
+                customLabel = label.trim().ifBlank { null }
+            )
+        )
+    }
+
     // ── Profiles ──
     fun profilesFlow(): Flow<List<ShiftProfile>> =
         profileDao.getAllFlow().map { list -> list.map { it.toDomain() } }

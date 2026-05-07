@@ -86,10 +86,16 @@ class ShiftViewModel @Inject constructor(
         _violations.value = result.violations
     }
 
-    /** Manually change one cell in the shift table */
+    /** Manually change one cell in the shift table (block-based) */
     fun setEntry(staffId: Long, date: LocalDate, blockId: Long?) = viewModelScope.launch {
         repo.setEntry(staffId, date, blockId)
     }
+
+    /** Manually add a spot/custom shift with explicit start/end times */
+    fun setCustomEntry(staffId: Long, date: LocalDate, start: String, end: String, label: String) =
+        viewModelScope.launch {
+            repo.setCustomEntry(staffId, date, start, end, label)
+        }
 
     fun exportCsv(context: Context) = viewModelScope.launch {
         CsvExporter.export(context, _month.value, staff.value, blocks.value, _entries.value)

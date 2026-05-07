@@ -38,10 +38,19 @@ object CsvExporter {
             dates.forEach { d ->
                 val dayEntries = entryMap[s.id to d]
                 if (!dayEntries.isNullOrEmpty()) {
-                    val blockName = blockMap[dayEntries.first().blockId]?.name ?: "?"
-                    sb.append(",$blockName")
+                    val entry = dayEntries.first()
+                    val cellLabel = if (entry.isCustom) {
+                        entry.customLabel?.ifBlank { null }
+                            ?: "${entry.customStart ?: ""}〜${entry.customEnd ?: ""}"
+                    } else {
+                        blockMap[entry.blockId]?.name ?: "?"
+                    }
+                    sb.append(",$cellLabel")
                     days++
-                    hours += dayEntries.sumOf { blockMap[it.blockId]?.durationHours ?: 0.0 }
+                    hours += dayEntries.sumOf { e ->
+                        if (e.isCustom) e.customDurationHours
+                        else blockMap[e.blockId]?.durationHours ?: 0.0
+                    }
                 } else {
                     sb.append(",")
                 }

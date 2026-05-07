@@ -15,7 +15,7 @@ import com.shiftmate.data.local.entity.*
         ShiftEntryEntity::class,
         ShiftProfileEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class ShiftMateDatabase : RoomDatabase() {

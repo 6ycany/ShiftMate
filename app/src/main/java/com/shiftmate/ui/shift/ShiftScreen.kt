@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +36,8 @@ private val blockColors = listOf(
     Color(0xFFE1BEE7) to Color(0xFF4A148C),
     Color(0xFFFFE0B2) to Color(0xFFE65100)
 )
+// Spot/custom entry colour
+private val spotColor = Color(0xFFE8EAF6) to Color(0xFF3F51B5)
 
 @Composable
 fun ShiftScreen(vm: ShiftViewModel = hiltViewModel()) {
@@ -59,12 +63,17 @@ fun ShiftScreen(vm: ShiftViewModel = hiltViewModel()) {
     }
 
     editTarget?.let { (targetStaff, date) ->
+        val currentEntry = entries.find { it.staffId == targetStaff.id && it.date == date }
         EditCellDialog(
             staff = targetStaff,
             date = date,
             blocks = blocks,
-            currentBlockId = entries.find { it.staffId == targetStaff.id && it.date == date }?.blockId,
-            onSelect = { blockId -> vm.setEntry(targetStaff.id, date, blockId); editTarget = null },
+            currentEntry = currentEntry,
+            onSelectBlock = { blockId -> vm.setEntry(targetStaff.id, date, blockId); editTarget = null },
+            onSelectSpot = { start, end, label ->
+                vm.setCustomEntry(targetStaff.id, date, start, end, label)
+                editTarget = null
+            },
             onDismiss = { editTarget = null }
         )
     }
@@ -195,35 +204,133 @@ fun ShiftScreen(vm: ShiftViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditCellDialog(
     staff: Staff,
     date: LocalDate,
     blocks: List<TimeBlock>,
-    currentBlockId: Long?,
-    onSelect: (Long?) -> Unit,
+    currentEntry: ShiftEntry?,
+    onSelectBlock: (Long?) -> Unit,
+    onSelectSpot: (start: String, end: String, label: String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Spot shift state — pre-fill if current entry is already a spot entry
+    var spotStart by remember { mutableStateOf(currentEntry?.customStart ?: "09:00") }
+    var spotEnd   by remember { mutableStateOf(currentEntry?.customEnd   ?: "17:00") }
+    var spotLabel by remember { mutableStateOf(currentEntry?.customLabel ?: "") }
+    var showSpotStartPicker by remember { mutableStateOf(false) }
+    var showSpotEndPicker   by remember { mutableStateOf(false) }
+
+    fun parseTime(s: String): Pair<Int, Int> {
+        val p = s.split(":")
+        return (p.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 9) to
+               (p.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0)
+    }
+
+    if (showSpotStartPicker) {
+        val (h, m) = parseTime(spotStart)
+        SpotTimePickerDialog(title = "開始時刻", h, m,
+            onConfirm = { hh, mm -> spotStart = "%02d:%02d".format(hh, mm); showSpotStartPicker = false },
+            onDismiss = { showSpotStartPicker = false }
+        )
+    }
+    if (showSpotEndPicker) {
+        val (h, m) = parseTime(spotEnd)
+        SpotTimePickerDialog(title = "終了時刻", h, m,
+            onConfirm = { hh, mm -> spotEnd = "%02d:%02d".format(hh, mm); showSpotEndPicker = false },
+            onDismiss = { showSpotEndPicker = false }
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${staff.name} — ${date.monthValue}/${date.dayOfMonth}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("時間帯を選択してください", fontSize = 13.sp, color = Color.Gray)
+
+                // ── Block selection ────────────────────────────────
+                Text("シフト区分から選択", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
                 blocks.forEachIndexed { idx, block ->
                     val (bg, fg) = blockColors.getOrElse(idx) { blockColors[0] }
-                    val selected = block.id == currentBlockId
+                    val selected = currentEntry?.blockId == block.id
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .border(2.dp, if (selected) fg else Color.Transparent, RoundedCornerShape(8.dp))
-                            .clickable { onSelect(block.id) },
+                            .clickable { onSelectBlock(block.id) },
                         color = if (selected) bg else Color(0xFFF5F5F5)
                     ) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(block.name, fontWeight = FontWeight.SemiBold, color = if (selected) fg else Color.Black, modifier = Modifier.weight(1f))
-                            Text("${block.start}〜${block.end}", fontSize = 12.sp, color = if (selected) fg else Color.Gray)
+                        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(block.name, fontWeight = FontWeight.SemiBold,
+                                color = if (selected) fg else Color.Black,
+                                modifier = Modifier.weight(1f), fontSize = 13.sp)
+                            Text("${block.start}〜${block.end}", fontSize = 11.sp,
+                                color = if (selected) fg else Color.Gray)
+                        }
+                    }
+                }
+
+                // ── Spot / custom shift ────────────────────────────
+                HorizontalDivider()
+                val spotSelected = currentEntry?.isCustom == true
+                Surface(
+                    color = if (spotSelected) spotColor.first else Color(0xFFF5F5F5),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(2.dp, if (spotSelected) spotColor.second else Color.Transparent, RoundedCornerShape(8.dp))
+                ) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("スポット勤務（時間指定）", fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold, color = spotColor.second)
+
+                        // Time row
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            // Start
+                            OutlinedButton(
+                                onClick = { showSpotStartPicker = true },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Filled.AccessTime, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(spotStart, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text("〜", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            // End
+                            OutlinedButton(
+                                onClick = { showSpotEndPicker = true },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Filled.AccessTime, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(spotEnd, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Label
+                        OutlinedTextField(
+                            value = spotLabel,
+                            onValueChange = { spotLabel = it },
+                            label = { Text("ラベル（任意）") },
+                            placeholder = { Text("例：応援、特別勤務", fontSize = 11.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
+                        )
+
+                        // Add spot button
+                        Button(
+                            onClick = { onSelectSpot(spotStart, spotEnd, spotLabel) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = spotColor.second)
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("スポット勤務を設定", fontSize = 13.sp)
                         }
                     }
                 }
@@ -232,10 +339,26 @@ private fun EditCellDialog(
         confirmButton = {},
         dismissButton = {
             Row {
-                TextButton(onClick = { onSelect(null) }) { Text("クリア", color = Color(0xFFE53935)) }
+                TextButton(onClick = { onSelectBlock(null) }) { Text("クリア", color = Color(0xFFE53935)) }
                 TextButton(onClick = onDismiss) { Text("キャンセル") }
             }
         }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SpotTimePickerDialog(
+    title: String, initialHour: Int, initialMinute: Int,
+    onConfirm: (Int, Int) -> Unit, onDismiss: () -> Unit
+) {
+    val state = rememberTimePickerState(initialHour, initialMinute, true)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TimePicker(state = state) } },
+        confirmButton = { TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text("OK") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("キャンセル") } }
     )
 }
 
@@ -277,7 +400,10 @@ private fun ShiftTable(
                 staff.forEach { s ->
                     val myEntries = entries.filter { it.staffId == s.id }
                     val workDays = myEntries.map { it.date }.distinct().size
-                    val workHours = myEntries.sumOf { blockMap[it.blockId]?.durationHours ?: 0.0 }
+                    val workHours = myEntries.sumOf { e ->
+                        if (e.isCustom) e.customDurationHours
+                        else blockMap[e.blockId]?.durationHours ?: 0.0
+                    }
 
                     Row(Modifier.background(Color.White)) {
                         Text(s.name, Modifier.width(100.dp).padding(4.dp), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
@@ -290,14 +416,24 @@ private fun ShiftTable(
                             ) {
                                 val dayEntries = entryMap[s.id to d]
                                 if (!dayEntries.isNullOrEmpty()) {
-                                    val blockIdx = blocks.indexOfFirst { it.id == dayEntries.first().blockId }
-                                    val (chipBg, chipFg) = blockColors.getOrElse(blockIdx) { blockColors[0] }
+                                    val entry = dayEntries.first()
+                                    val (chipBg, chipFg) = if (entry.isCustom) {
+                                        spotColor
+                                    } else {
+                                        val blockIdx = blocks.indexOfFirst { it.id == entry.blockId }
+                                        blockColors.getOrElse(blockIdx) { blockColors[0] }
+                                    }
+                                    val cellLabel = if (entry.isCustom) {
+                                        entry.displayLabel.take(3).ifBlank { "SP" }
+                                    } else {
+                                        blockMap[entry.blockId]?.name?.take(2) ?: "?"
+                                    }
                                     Surface(
                                         color = chipBg, shape = MaterialTheme.shapes.extraSmall,
                                         modifier = Modifier.padding(1.dp)
                                     ) {
                                         Text(
-                                            blockMap[dayEntries.first().blockId]?.name?.take(2) ?: "?",
+                                            cellLabel,
                                             Modifier.padding(horizontal = 2.dp, vertical = 1.dp),
                                             fontSize = 8.sp, color = chipFg, fontWeight = FontWeight.Bold
                                         )

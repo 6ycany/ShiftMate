@@ -45,7 +45,7 @@ class ProfileViewModel @Inject constructor(
             val json = JsonExporter.buildJson(roles, staff, blocks, rule)
             val file = JsonExporter.writeToCache(context, json)
 
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/json"
                 putExtra(Intent.EXTRA_STREAM, uri)

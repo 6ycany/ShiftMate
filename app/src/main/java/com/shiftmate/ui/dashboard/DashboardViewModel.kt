@@ -57,7 +57,10 @@ class DashboardViewModel @Inject constructor(
         val staffStats = staff.map { s ->
             val myEntries = entries.filter { it.staffId == s.id }
             val days = myEntries.map { it.date }.distinct().size
-            val hours = myEntries.sumOf { blockMap[it.blockId]?.durationHours ?: 0.0 }
+            val hours = myEntries.sumOf { e ->
+                if (e.isCustom) e.customDurationHours
+                else blockMap[e.blockId]?.durationHours ?: 0.0
+            }
             val cost = (hours * s.hourlyWage).toInt()
             val util = if (s.maxDaysPerMonth > 0) (days * 100 / s.maxDaysPerMonth) else 0
             StaffStat(s, days, hours, cost, util)

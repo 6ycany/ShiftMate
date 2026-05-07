@@ -33,7 +33,7 @@ object PdfExporter {
         file.outputStream().use { pdfDoc.writeTo(it) }
         pdfDoc.close()
 
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/pdf"
             putExtra(Intent.EXTRA_STREAM, uri)
@@ -107,7 +107,9 @@ object PdfExporter {
             val ry = hy + (si + 1) * rowH
             val myEntries = entries.filter { it.staffId == s.id }
             val workDays = myEntries.map { it.date }.distinct().size
-            val workHours = myEntries.sumOf { blockMap[it.blockId]?.durationHours ?: 0.0 }
+            val workHours = myEntries.sumOf { e ->
+                if (e.isCustom) e.customDurationHours else blockMap[e.blockId]?.durationHours ?: 0.0
+            }
 
             // Row bg alternate
             if (si % 2 == 1) canvas.drawRect(hx, ry, hx + staffColW + dates.size * dayColW + daysColW + hoursColW, ry + rowH, Paint().apply { color = Color.parseColor("#F8FFF4"); style = Paint.Style.FILL })
@@ -118,11 +120,21 @@ object PdfExporter {
                 val x = hx + staffColW + i * dayColW
                 val entry = myEntries.find { it.date == d }
                 if (entry != null) {
-                    val blockIdx = blocks.indexOfFirst { it.id == entry.blockId }.coerceAtLeast(0)
-                    val cPaint = Paint().apply { color = blockColors.getOrElse(blockIdx) { blockColors[0] }; style = Paint.Style.FILL }
-                    canvas.drawRect(x + 1, ry + 1, x + dayColW - 1, ry + rowH - 1, cPaint)
-                    val bn = blockNames.getOrElse(blockIdx) { "?" }
-                    canvas.drawText(bn, x + 1, ry + rowH - 2, pBlack.also { it.textSize = 6f })
+                    if (entry.isCustom) {
+                        // Spot entry — indigo background
+                        canvas.drawRect(x + 1, ry + 1, x + dayColW - 1, ry + rowH - 1,
+                            Paint().apply { color = Color.parseColor("#E8EAF6"); style = Paint.Style.FILL })
+                        val spotLabel = entry.customLabel?.take(2)?.ifBlank { null }
+                            ?: entry.customStart?.take(5) ?: "SP"
+                        canvas.drawText(spotLabel, x + 1, ry + rowH - 2,
+                            pBlack.also { it.textSize = 5f; it.color = Color.parseColor("#3F51B5") })
+                    } else {
+                        val blockIdx = blocks.indexOfFirst { it.id == entry.blockId }.coerceAtLeast(0)
+                        val cPaint = Paint().apply { color = blockColors.getOrElse(blockIdx) { blockColors[0] }; style = Paint.Style.FILL }
+                        canvas.drawRect(x + 1, ry + 1, x + dayColW - 1, ry + rowH - 1, cPaint)
+                        val bn = blockNames.getOrElse(blockIdx) { "?" }
+                        canvas.drawText(bn, x + 1, ry + rowH - 2, pBlack.also { it.textSize = 6f })
+                    }
                 }
                 canvas.drawLine(x, ry, x, ry + rowH, pLine)
             }

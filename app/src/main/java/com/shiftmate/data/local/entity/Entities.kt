@@ -81,8 +81,11 @@ data class ShiftRequestEntity(
 data class ShiftEntryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val staffId: Long,
-    val blockId: Long,
-    val date: String    // ISO: "2026-05-01"
+    val blockId: Long?,           // null = spot/custom entry
+    val date: String,             // ISO: "2026-05-01"
+    val customStart: String? = null,
+    val customEnd: String? = null,
+    val customLabel: String? = null
 )
 
 // ── Saved configuration profiles ─────────────────────────────────

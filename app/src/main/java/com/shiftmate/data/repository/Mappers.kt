@@ -27,5 +27,9 @@ fun ShiftRequest.toEntity() = ShiftRequestEntity(
     status.name
 )
 
-fun ShiftEntryEntity.toDomain() = ShiftEntry(id, staffId, blockId, LocalDate.parse(date))
-fun ShiftEntry.toEntity() = ShiftEntryEntity(id, staffId, blockId, date.toString())
+fun ShiftEntryEntity.toDomain() = ShiftEntry(
+    id, staffId, blockId, LocalDate.parse(date), customStart, customEnd, customLabel
+)
+fun ShiftEntry.toEntity() = ShiftEntryEntity(
+    id, staffId, blockId, date.toString(), customStart, customEnd, customLabel
+)
