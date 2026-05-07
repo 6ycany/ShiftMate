@@ -84,6 +84,21 @@ fun StaffScreen(
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("役職設定") })
             }
 
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    val desc = if (selectedTab == 0)
+                        "スタッフを管理します。まず「役職設定」タブで役職を追加し、その後スタッフを登録してください。"
+                    else
+                        "役職（ポジション）を定義します。役職ごとに週の稼働時間や月の最大出勤日数、最低配置人数を設定できます。"
+                    Text(desc, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
             when (selectedTab) {
                 0 -> StaffListTab(
                     staff = staff,

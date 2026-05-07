@@ -1,5 +1,6 @@
 package com.shiftmate.ui.rules
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.shiftmate.domain.model.ShiftRule
 import com.shiftmate.domain.model.TimeBlock
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RulesScreen(vm: RulesViewModel = hiltViewModel()) {
     val rule by vm.rule.collectAsState()
@@ -30,6 +32,106 @@ fun RulesScreen(vm: RulesViewModel = hiltViewModel()) {
     var editableBlocks by remember(blocks) { mutableStateOf(blocks.toMutableList()) }
 
     var dirty by remember { mutableStateOf(false) }
+    var showUnsavedDialog by remember { mutableStateOf(false) }
+
+    // TimePicker dialog state
+    var showOpenTimePicker by remember { mutableStateOf(false) }
+    var showCloseTimePicker by remember { mutableStateOf(false) }
+
+    // Helper to parse "HH:MM" → Pair(hour, minute)
+    fun parseTime(s: String): Pair<Int, Int> {
+        val parts = s.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 9
+        val m = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+        return h to m
+    }
+
+    // Auto-save when composable leaves composition (tab switch)
+    val latestDirty = rememberUpdatedState(dirty)
+    val latestOpenTime = rememberUpdatedState(openTime)
+    val latestCloseTime = rememberUpdatedState(closeTime)
+    val latestMaxConsec = rememberUpdatedState(maxConsec)
+    val latestBlocks = rememberUpdatedState(editableBlocks)
+    val latestRuleId = rememberUpdatedState(rule?.id ?: 0L)
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (latestDirty.value) {
+                vm.saveRule(ShiftRule(
+                    id = latestRuleId.value,
+                    openTime = latestOpenTime.value,
+                    closeTime = latestCloseTime.value,
+                    maxConsecDays = latestMaxConsec.value.toIntOrNull() ?: 5
+                ))
+                vm.saveAllBlocks(latestBlocks.value)
+            }
+        }
+    }
+
+    // Back button: show dialog
+    BackHandler(enabled = dirty) {
+        showUnsavedDialog = true
+    }
+
+    // Unsaved changes dialog (back press)
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("未保存の変更があります") },
+            text = { Text("変更内容を保存しますか？\n「保存しない」を選ぶと変更が破棄されます。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.saveRule(ShiftRule(
+                        id = rule?.id ?: 0L,
+                        openTime = openTime,
+                        closeTime = closeTime,
+                        maxConsecDays = maxConsec.toIntOrNull() ?: 5
+                    ))
+                    vm.saveAllBlocks(editableBlocks)
+                    dirty = false
+                    showUnsavedDialog = false
+                }) { Text("保存する") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    dirty = false
+                    showUnsavedDialog = false
+                }) { Text("保存しない", color = Color(0xFFE53935)) }
+            }
+        )
+    }
+
+    // Open time picker dialog
+    if (showOpenTimePicker) {
+        val (h, m) = parseTime(openTime)
+        TimePickerDialog(
+            title = "営業開始時刻",
+            initialHour = h,
+            initialMinute = m,
+            onConfirm = { hour, minute ->
+                openTime = "%02d:%02d".format(hour, minute)
+                dirty = true
+                showOpenTimePicker = false
+            },
+            onDismiss = { showOpenTimePicker = false }
+        )
+    }
+
+    // Close time picker dialog
+    if (showCloseTimePicker) {
+        val (h, m) = parseTime(closeTime)
+        TimePickerDialog(
+            title = "営業終了時刻",
+            initialHour = h,
+            initialMinute = m,
+            onConfirm = { hour, minute ->
+                closeTime = "%02d:%02d".format(hour, minute)
+                dirty = true
+                showCloseTimePicker = false
+            },
+            onDismiss = { showCloseTimePicker = false }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -64,18 +166,58 @@ fun RulesScreen(vm: RulesViewModel = hiltViewModel()) {
             contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Description card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "営業時間・連続勤務上限・時間帯ブロックを設定します。時間帯ブロックはシフト生成の単位になります。変更後は右上の「保存」を押してください。",
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("基本設定", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+
+                        // Open time — tap to open picker
                         OutlinedTextField(
-                            value = openTime, onValueChange = { openTime = it; dirty = true },
-                            label = { Text("営業開始") }, modifier = Modifier.fillMaxWidth()
+                            value = openTime,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("営業開始") },
+                            trailingIcon = {
+                                IconButton(onClick = { showOpenTimePicker = true }) {
+                                    Icon(Icons.Filled.AccessTime, contentDescription = "時刻を選択")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
+                        // The entire field is tappable
+                        // (trailingIcon button handles the tap)
+
+                        // Close time
                         OutlinedTextField(
-                            value = closeTime, onValueChange = { closeTime = it; dirty = true },
-                            label = { Text("営業終了") }, modifier = Modifier.fillMaxWidth()
+                            value = closeTime,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("営業終了") },
+                            trailingIcon = {
+                                IconButton(onClick = { showCloseTimePicker = true }) {
+                                    Icon(Icons.Filled.AccessTime, contentDescription = "時刻を選択")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
+
                         OutlinedTextField(
                             value = maxConsec, onValueChange = { maxConsec = it; dirty = true },
                             label = { Text("連続勤務上限（日）") },
@@ -122,15 +264,64 @@ fun RulesScreen(vm: RulesViewModel = hiltViewModel()) {
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Start time with picker
+                            var showBlockStartPicker by remember { mutableStateOf(false) }
+                            var showBlockEndPicker by remember { mutableStateOf(false) }
+
+                            if (showBlockStartPicker) {
+                                val (h, m) = parseTime(block.start)
+                                TimePickerDialog(
+                                    title = "開始時刻",
+                                    initialHour = h,
+                                    initialMinute = m,
+                                    onConfirm = { hour, minute ->
+                                        val v = "%02d:%02d".format(hour, minute)
+                                        editableBlocks = editableBlocks.toMutableList().also { it[index] = block.copy(start = v) }
+                                        dirty = true
+                                        showBlockStartPicker = false
+                                    },
+                                    onDismiss = { showBlockStartPicker = false }
+                                )
+                            }
+                            if (showBlockEndPicker) {
+                                val (h, m) = parseTime(block.end)
+                                TimePickerDialog(
+                                    title = "終了時刻",
+                                    initialHour = h,
+                                    initialMinute = m,
+                                    onConfirm = { hour, minute ->
+                                        val v = "%02d:%02d".format(hour, minute)
+                                        editableBlocks = editableBlocks.toMutableList().also { it[index] = block.copy(end = v) }
+                                        dirty = true
+                                        showBlockEndPicker = false
+                                    },
+                                    onDismiss = { showBlockEndPicker = false }
+                                )
+                            }
+
                             OutlinedTextField(
                                 value = block.start,
-                                onValueChange = { v -> editableBlocks = editableBlocks.toMutableList().also { it[index] = block.copy(start = v) }; dirty = true },
-                                label = { Text("開始") }, modifier = Modifier.weight(1f)
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("開始") },
+                                trailingIcon = {
+                                    IconButton(onClick = { showBlockStartPicker = true }) {
+                                        Icon(Icons.Filled.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
                             )
                             OutlinedTextField(
                                 value = block.end,
-                                onValueChange = { v -> editableBlocks = editableBlocks.toMutableList().also { it[index] = block.copy(end = v) }; dirty = true },
-                                label = { Text("終了") }, modifier = Modifier.weight(1f)
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("終了") },
+                                trailingIcon = {
+                                    IconButton(onClick = { showBlockEndPicker = true }) {
+                                        Icon(Icons.Filled.AccessTime, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
                             )
                         }
                         OutlinedTextField(
@@ -145,4 +336,35 @@ fun RulesScreen(vm: RulesViewModel = hiltViewModel()) {
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(
+    title: String,
+    initialHour: Int,
+    initialMinute: Int,
+    onConfirm: (Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val state = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                TimePicker(state = state)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("キャンセル") }
+        }
+    )
 }

@@ -39,7 +39,14 @@ object PdfExporter {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "PDFを共有"))
+        val chooser = Intent.createChooser(intent, "PDFを共有").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "PDF共有アプリが見つかりません", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun draw(

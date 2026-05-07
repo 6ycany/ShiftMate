@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -70,6 +71,23 @@ fun RequestScreen(vm: RequestViewModel = hiltViewModel()) {
         }
 
         LazyColumn(Modifier.padding(padding)) {
+            // Description card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "スタッフごとの希望休を入力します。日付をタップするとブロックごとに○／△／×を設定できます。カレンダーの点はブロックごとの状態を表しています。",
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             // Month nav
             item {
                 Row(
@@ -162,6 +180,14 @@ private fun CalendarGrid(
     val firstDow = LocalDate.of(month.year, month.monthValue, 1).dayOfWeek.value % 7
     val daysInMonth = month.lengthOfMonth()
 
+    // Block label colors for dots: index → color
+    val blockDotColors = listOf(
+        Color(0xFF43A047),  // green
+        Color(0xFF1976D2),  // blue
+        Color(0xFF9C27B0),  // purple
+        Color(0xFFFB8C00)   // orange
+    )
+
     Column(Modifier.padding(horizontal = 12.dp)) {
         Row {
             weekdays.forEachIndexed { i, wd ->
@@ -174,6 +200,25 @@ private fun CalendarGrid(
         }
         Spacer(Modifier.height(4.dp))
 
+        // Block legend
+        if (blocks.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                blocks.forEachIndexed { i, block ->
+                    val dotColor = blockDotColors.getOrElse(i) { blockDotColors[0] }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(dotColor))
+                        Spacer(Modifier.width(2.dp))
+                        Text(block.name.take(4), fontSize = 9.sp, color = Color.Gray)
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                Text("●=○  ◐=△  ○=×", fontSize = 9.sp, color = Color.LightGray)
+            }
+        }
+
         val cells = List(firstDow) { null } + (1..daysInMonth).map { it }
         cells.chunked(7).forEach { week ->
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -184,46 +229,73 @@ private fun CalendarGrid(
                         val date = LocalDate.of(month.year, month.monthValue, day)
                         val dow = date.dayOfWeek.value % 7
                         val dayRequests = requests.filter { it.date == date }
-                        // Determine worst status across all blocks
+
+                        // Worst status for border/bg
                         val worstStatus = when {
                             dayRequests.any { it.status == RequestStatus.DAY_OFF } -> RequestStatus.DAY_OFF
                             dayRequests.any { it.status == RequestStatus.PREFER_OFF } -> RequestStatus.PREFER_OFF
                             else -> RequestStatus.AVAILABLE
                         }
                         val cellBg = when (worstStatus) {
-                            RequestStatus.DAY_OFF    -> Color(0xFFFFCDD2)
-                            RequestStatus.PREFER_OFF -> Color(0xFFFFF9C4)
+                            RequestStatus.DAY_OFF    -> Color(0xFFFFEBEE)
+                            RequestStatus.PREFER_OFF -> Color(0xFFFFFDE7)
                             else -> Color.White
                         }
                         val borderColor = when (worstStatus) {
-                            RequestStatus.DAY_OFF    -> Color(0xFFE53935)
-                            RequestStatus.PREFER_OFF -> Color(0xFFFB8C00)
+                            RequestStatus.DAY_OFF    -> Color(0xFFEF9A9A)
+                            RequestStatus.PREFER_OFF -> Color(0xFFFFE082)
                             else -> Color(0xFFE0E0E0)
                         }
-                        val badge = when (worstStatus) {
-                            RequestStatus.DAY_OFF    -> "×"
-                            RequestStatus.PREFER_OFF -> "△"
-                            else -> ""
-                        }
+
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.5.dp, borderColor, RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(6.dp))
+                                .border(1.5.dp, borderColor, RoundedCornerShape(6.dp))
                                 .background(cellBg)
                                 .clickable { onCellClick(date) }
-                                .padding(4.dp),
+                                .padding(3.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                day.toString(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                                day.toString(), fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                 color = if (dow == 0) Color(0xFFE53935) else if (dow == 6) Color(0xFF1976D2) else Color.Black
                             )
-                            if (badge.isNotEmpty()) {
-                                Text(badge, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
-                                    color = if (worstStatus == RequestStatus.DAY_OFF) Color(0xFFE53935) else Color(0xFFFB8C00))
-                            } else {
-                                Spacer(Modifier.height(14.dp))
+                            // Per-block status dots
+                            if (blocks.isNotEmpty()) {
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                                ) {
+                                    blocks.forEachIndexed { i, block ->
+                                        val req = dayRequests.find { it.blockId == block.id }
+                                        val status = req?.status ?: RequestStatus.AVAILABLE
+                                        val baseColor = blockDotColors.getOrElse(i) { blockDotColors[0] }
+                                        val dotColor = when (status) {
+                                            RequestStatus.DAY_OFF    -> Color(0xFFE53935)
+                                            RequestStatus.PREFER_OFF -> Color(0xFFFB8C00)
+                                            else -> baseColor.copy(alpha = 0.25f)
+                                        }
+                                        // Badge text: × for day off, △ for prefer off, blank for available
+                                        val badge = when (status) {
+                                            RequestStatus.DAY_OFF    -> "×"
+                                            RequestStatus.PREFER_OFF -> "△"
+                                            else -> ""
+                                        }
+                                        Box(
+                                            Modifier.size(14.dp, 14.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                Modifier.size(8.dp).clip(CircleShape).background(dotColor)
+                                            )
+                                            if (badge.isNotEmpty()) {
+                                                Text(badge, fontSize = 7.sp, fontWeight = FontWeight.ExtraBold,
+                                                    color = Color.White)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
