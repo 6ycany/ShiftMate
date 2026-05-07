@@ -32,6 +32,9 @@ jobs:
       - name: Install Android SDK 35
         run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Install ImageMagick
+        run: sudo apt-get install -y imagemagick
+
       - name: Generate mipmap launcher icons
         run: |
           SRC="app/src/main/res/drawable-nodpi/ic_launcher_source.png"
