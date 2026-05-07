@@ -12,17 +12,44 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import com.shiftmate.ui.dashboard.DashboardScreen
 import com.shiftmate.ui.help.HelpScreen
+import com.shiftmate.ui.profile.ProfileScreen
 import com.shiftmate.ui.request.RequestScreen
 import com.shiftmate.ui.rules.RulesScreen
 import com.shiftmate.ui.shift.ShiftScreen
 import com.shiftmate.ui.staff.StaffScreen
+import com.shiftmate.ui.title.TitleScreen
 
+// ── Outer nav (Title → App / Guide) ───────────────────────────────
+@Composable
+fun AppNavHost() {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "title") {
+        composable("title") {
+            TitleScreen(
+                onGuide = { navController.navigate("guide") },
+                onStart = {
+                    navController.navigate("app") {
+                        popUpTo("title") { inclusive = false }
+                    }
+                }
+            )
+        }
+        composable("guide") {
+            HelpScreen(onBack = { navController.popBackStack() })
+        }
+        composable("app") {
+            ShiftMateNavHost()
+        }
+    }
+}
+
+// ── Inner nav (Bottom tabs) ────────────────────────────────────────
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
-    object Staff : Screen("staff", "スタッフ", Icons.Filled.People)
-    object Rules : Screen("rules", "ルール", Icons.Filled.Settings)
-    object Request : Screen("request", "希望休", Icons.Filled.CalendarToday)
-    object Shift : Screen("shift", "シフト", Icons.Filled.TableChart)
-    object Dashboard : Screen("dashboard", "集計", Icons.Filled.Analytics)
+    object Staff     : Screen("staff",     "スタッフ", Icons.Filled.People)
+    object Rules     : Screen("rules",     "ルール",   Icons.Filled.Settings)
+    object Request   : Screen("request",   "希望休",   Icons.Filled.CalendarToday)
+    object Shift     : Screen("shift",     "シフト",   Icons.Filled.TableChart)
+    object Dashboard : Screen("dashboard", "集計",     Icons.Filled.Analytics)
 }
 
 private val bottomNavItems = listOf(
@@ -34,7 +61,7 @@ fun ShiftMateNavHost() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != "help"
+    val showBottomBar = currentRoute !in listOf("help", "profile")
 
     Scaffold(
         bottomBar = {
@@ -65,13 +92,17 @@ fun ShiftMateNavHost() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Staff.route) {
-                StaffScreen(onNavigateToHelp = { navController.navigate("help") })
+                StaffScreen(
+                    onNavigateToHelp = { navController.navigate("help") },
+                    onNavigateToProfile = { navController.navigate("profile") }
+                )
             }
-            composable(Screen.Rules.route) { RulesScreen() }
-            composable(Screen.Request.route) { RequestScreen() }
-            composable(Screen.Shift.route) { ShiftScreen() }
+            composable(Screen.Rules.route)     { RulesScreen() }
+            composable(Screen.Request.route)   { RequestScreen() }
+            composable(Screen.Shift.route)     { ShiftScreen() }
             composable(Screen.Dashboard.route) { DashboardScreen() }
-            composable("help") { HelpScreen(onBack = { navController.popBackStack() }) }
+            composable("help")    { HelpScreen(onBack = { navController.popBackStack() }) }
+            composable("profile") { ProfileScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }

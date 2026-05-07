@@ -23,6 +23,9 @@ interface RoleDao {
 
     @Query("SELECT COUNT(*) FROM staff WHERE roleId = :roleId")
     suspend fun countStaffByRole(roleId: Long): Int
+
+    @Query("DELETE FROM roles")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -41,6 +44,9 @@ interface StaffDao {
 
     @Delete
     suspend fun delete(staff: StaffEntity)
+
+    @Query("DELETE FROM staff")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -77,6 +83,9 @@ interface ShiftRuleDao {
 
     @Update
     suspend fun update(rule: ShiftRuleEntity)
+
+    @Query("DELETE FROM shift_rules")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -108,6 +117,24 @@ interface ShiftEntryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entries: List<ShiftEntryEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entry: ShiftEntryEntity): Long
+
     @Query("DELETE FROM shift_entries WHERE date LIKE :yearMonth || '%'")
     suspend fun deleteByMonth(yearMonth: String)
+
+    @Query("DELETE FROM shift_entries WHERE staffId = :staffId AND date = :date")
+    suspend fun deleteByStaffAndDate(staffId: Long, date: String)
+}
+
+@Dao
+interface ShiftProfileDao {
+    @Query("SELECT * FROM shift_profiles ORDER BY createdAt DESC")
+    fun getAllFlow(): Flow<List<ShiftProfileEntity>>
+
+    @Insert
+    suspend fun insert(profile: ShiftProfileEntity): Long
+
+    @Query("DELETE FROM shift_profiles WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

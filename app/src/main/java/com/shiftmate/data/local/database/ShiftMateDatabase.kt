@@ -12,9 +12,10 @@ import com.shiftmate.data.local.entity.*
         TimeBlockEntity::class,
         ShiftRuleEntity::class,
         ShiftRequestEntity::class,
-        ShiftEntryEntity::class
+        ShiftEntryEntity::class,
+        ShiftProfileEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class ShiftMateDatabase : RoomDatabase() {
@@ -24,4 +25,5 @@ abstract class ShiftMateDatabase : RoomDatabase() {
     abstract fun shiftRuleDao(): ShiftRuleDao
     abstract fun shiftRequestDao(): ShiftRequestDao
     abstract fun shiftEntryDao(): ShiftEntryDao
+    abstract fun shiftProfileDao(): ShiftProfileDao
 }

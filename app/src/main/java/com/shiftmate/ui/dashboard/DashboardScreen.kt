@@ -1,5 +1,11 @@
 package com.shiftmate.ui.dashboard
 
+import android.content.ContentValues
+import android.content.Context
+import android.graphics.Bitmap
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,28 +19,52 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.layer.rememberGraphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun DashboardScreen(vm: DashboardViewModel = hiltViewModel()) {
     val month by vm.currentMonth.collectAsState()
     val state by vm.uiState.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val graphicsLayer = rememberGraphicsLayer()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("集計ダッシュボード") },
+                actions = {
+                    if (state.stats.isNotEmpty()) {
+                        IconButton(onClick = {
+                            scope.launch {
+                                val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
+                                val saved = saveDashboardImage(context, bitmap, "ShiftMate_${month}.png")
+                                snackbarHostState.showSnackbar(if (saved) "画像をギャラリーに保存しました" else "保存に失敗しました")
+                            }
+                        }) {
+                            Icon(Icons.Filled.SaveAlt, contentDescription = "画像保存", tint = Color.White)
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White
                 )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         if (state.stats.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -43,9 +73,17 @@ fun DashboardScreen(vm: DashboardViewModel = hiltViewModel()) {
             return@Scaffold
         }
 
-        LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .drawWithContent {
+                    graphicsLayer.record { this@drawWithContent.drawContent() }
+                    drawLayer(graphicsLayer)
+                },
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item {
-                // Month nav
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { vm.prevMonth() }) { Icon(Icons.Filled.ChevronLeft, contentDescription = "前月") }
                     Text("${month.year}年${month.monthValue}月", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(140.dp), textAlign = TextAlign.Center)
@@ -54,10 +92,9 @@ fun DashboardScreen(vm: DashboardViewModel = hiltViewModel()) {
             }
 
             item {
-                // Summary stats
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatBox(Modifier.weight(1f), "${state.stats.size}", "名", "スタッフ", Color(0xFF1976D2))
-                    StatBox(Modifier.weight(1f), "${state.understaffedDays}", "日", "人員不足", Color(0xFFFB8C00))
+                    StatBox(Modifier.weight(1f), "${state.stats.size}", "名", "スタッフ", MaterialTheme.colorScheme.primary)
+                    StatBox(Modifier.weight(1f), "${state.understaffedDays}", "日", "人員不足", Color(0xFFEF5350))
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -101,16 +138,15 @@ fun DashboardScreen(vm: DashboardViewModel = hiltViewModel()) {
                 }
             }
 
-            item {
-                Text("曜日別平均人員", style = MaterialTheme.typography.titleSmall, color = Color.Gray)
-            }
+            item { Text("曜日別平均人員", style = MaterialTheme.typography.titleSmall, color = Color.Gray) }
 
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(12.dp)) {
                         listOf("日","月","火","水","木","金","土").forEachIndexed { i, wd ->
                             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(wd, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (i == 0) Color(0xFFE53935) else if (i == 6) Color(0xFF1976D2) else Color.Gray)
+                                Text(wd, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                    color = if (i == 0) Color(0xFFE53935) else if (i == 6) MaterialTheme.colorScheme.primary else Color.Gray)
                                 Spacer(Modifier.height(6.dp))
                                 Text(String.format("%.1f", state.avgByDow.getOrElse(i) { 0f }), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                             }
@@ -138,5 +174,27 @@ private fun StatBox(modifier: Modifier, value: String, unit: String, label: Stri
                 }
             }
         }
+    }
+}
+
+private fun saveDashboardImage(context: Context, bitmap: Bitmap, filename: String): Boolean {
+    return try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, filename)
+                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/ShiftMate")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return false
+            context.contentResolver.openOutputStream(uri)?.use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            true
+        } else {
+            val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "ShiftMate")
+            dir.mkdirs()
+            File(dir, filename).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            true
+        }
+    } catch (e: Exception) {
+        false
     }
 }

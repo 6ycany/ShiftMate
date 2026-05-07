@@ -2,7 +2,13 @@ package com.shiftmate.di
 
 import android.content.Context
 import androidx.room.Room
-import com.shiftmate.data.local.dao.*
+import com.shiftmate.data.local.dao.RoleDao
+import com.shiftmate.data.local.dao.ShiftEntryDao
+import com.shiftmate.data.local.dao.ShiftProfileDao
+import com.shiftmate.data.local.dao.ShiftRequestDao
+import com.shiftmate.data.local.dao.ShiftRuleDao
+import com.shiftmate.data.local.dao.StaffDao
+import com.shiftmate.data.local.dao.TimeBlockDao
 import com.shiftmate.data.local.database.ShiftMateDatabase
 import com.shiftmate.domain.scheduler.ShiftScheduler
 import dagger.Module
@@ -29,6 +35,7 @@ object AppModule {
     @Provides fun provideShiftRuleDao(db: ShiftMateDatabase): ShiftRuleDao = db.shiftRuleDao()
     @Provides fun provideShiftRequestDao(db: ShiftMateDatabase): ShiftRequestDao = db.shiftRequestDao()
     @Provides fun provideShiftEntryDao(db: ShiftMateDatabase): ShiftEntryDao = db.shiftEntryDao()
+    @Provides fun provideShiftProfileDao(db: ShiftMateDatabase): ShiftProfileDao = db.shiftProfileDao()
 
     @Provides
     @Singleton

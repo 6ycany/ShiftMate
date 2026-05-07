@@ -115,6 +115,8 @@ fun RequestScreen(vm: RequestViewModel = hiltViewModel()) {
                         item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.AVAILABLE) { true } }) { Text("全日 ○") } }
                         item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.DAY_OFF) { true } }) { Text("全日 ×") } }
                         item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.DAY_OFF) { it.dayOfWeek.value == 7 || it.dayOfWeek.value == 6 } }) { Text("土日 ×") } }
+                        item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.DAY_OFF) { it.dayOfWeek.value == 6 } }) { Text("土曜 ×") } }
+                        item { OutlinedButton(onClick = { vm.bulkSet(selectedStaffId!!, currentMonth, RequestStatus.DAY_OFF) { it.dayOfWeek.value == 7 } }) { Text("日曜 ×") } }
                         item { OutlinedButton(onClick = { vm.clearMonth(selectedStaffId!!, currentMonth) }) { Text("リセット") } }
                     }
                 }
@@ -182,19 +184,33 @@ private fun CalendarGrid(
                         val date = LocalDate.of(month.year, month.monthValue, day)
                         val dow = date.dayOfWeek.value % 7
                         val dayRequests = requests.filter { it.date == date }
-                        val indicatorColor = when {
-                            dayRequests.isEmpty() -> Color(0xFFE8F5E9)
-                            dayRequests.all { it.status == RequestStatus.DAY_OFF } -> Color(0xFFFFCDD2)
-                            dayRequests.any { it.status == RequestStatus.DAY_OFF } -> Color(0xFFFFE0B2)
-                            dayRequests.any { it.status == RequestStatus.PREFER_OFF } -> Color(0xFFFFF9C4)
-                            else -> Color(0xFFE8F5E9)
+                        // Determine worst status across all blocks
+                        val worstStatus = when {
+                            dayRequests.any { it.status == RequestStatus.DAY_OFF } -> RequestStatus.DAY_OFF
+                            dayRequests.any { it.status == RequestStatus.PREFER_OFF } -> RequestStatus.PREFER_OFF
+                            else -> RequestStatus.AVAILABLE
+                        }
+                        val cellBg = when (worstStatus) {
+                            RequestStatus.DAY_OFF    -> Color(0xFFFFCDD2)
+                            RequestStatus.PREFER_OFF -> Color(0xFFFFF9C4)
+                            else -> Color.White
+                        }
+                        val borderColor = when (worstStatus) {
+                            RequestStatus.DAY_OFF    -> Color(0xFFE53935)
+                            RequestStatus.PREFER_OFF -> Color(0xFFFB8C00)
+                            else -> Color(0xFFE0E0E0)
+                        }
+                        val badge = when (worstStatus) {
+                            RequestStatus.DAY_OFF    -> "×"
+                            RequestStatus.PREFER_OFF -> "△"
+                            else -> ""
                         }
                         Column(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
-                                .background(Color.White)
+                                .border(1.5.dp, borderColor, RoundedCornerShape(8.dp))
+                                .background(cellBg)
                                 .clickable { onCellClick(date) }
                                 .padding(4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -203,11 +219,12 @@ private fun CalendarGrid(
                                 day.toString(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
                                 color = if (dow == 0) Color(0xFFE53935) else if (dow == 6) Color(0xFF1976D2) else Color.Black
                             )
-                            Spacer(Modifier.height(4.dp))
-                            Box(
-                                Modifier.fillMaxWidth().height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)).background(indicatorColor)
-                            )
+                            if (badge.isNotEmpty()) {
+                                Text(badge, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
+                                    color = if (worstStatus == RequestStatus.DAY_OFF) Color(0xFFE53935) else Color(0xFFFB8C00))
+                            } else {
+                                Spacer(Modifier.height(14.dp))
+                            }
                         }
                     }
                 }

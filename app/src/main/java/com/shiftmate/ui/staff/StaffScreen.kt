@@ -32,7 +32,8 @@ private val roleColors = listOf(
 @Composable
 fun StaffScreen(
     vm: StaffViewModel = hiltViewModel(),
-    onNavigateToHelp: () -> Unit = {}
+    onNavigateToHelp: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val staff by vm.staff.collectAsState()
     val roles by vm.roles.collectAsState()
@@ -49,6 +50,9 @@ fun StaffScreen(
             TopAppBar(
                 title = { Text("スタッフ管理") },
                 actions = {
+                    IconButton(onClick = onNavigateToProfile) {
+                        Icon(Icons.Filled.FolderOpen, contentDescription = "設定の保存・読込", tint = Color.White)
+                    }
                     IconButton(onClick = onNavigateToHelp) {
                         Icon(Icons.Filled.Help, contentDescription = "ヘルプ", tint = Color.White)
                     }

@@ -5,16 +5,27 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Primary = Color(0xFF1976D2)
-private val PrimaryContainer = Color(0xFFBBDEFB)
-private val Secondary = Color(0xFF43A047)
-private val Error = Color(0xFFE53935)
+// ── Yellow-green / Pale-red palette ──────────────────────────────
+val AppGreen        = Color(0xFF7CB342)   // Primary – Yellow-green 600
+val AppGreenDark    = Color(0xFF558B2F)   // Dark – Yellow-green 800
+val AppGreenLight   = Color(0xFFDCEDC8)  // Container – Light green
+val AppRed          = Color(0xFFEF9A9A)  // Secondary – Pale red
+val AppRedDark      = Color(0xFFC62828)  // Error
+val AppRedContainer = Color(0xFFFFCDD2)  // Secondary container
 
 private val LightColors = lightColorScheme(
-    primary = Primary,
-    primaryContainer = PrimaryContainer,
-    secondary = Secondary,
-    error = Error
+    primary              = AppGreen,
+    onPrimary            = Color.White,
+    primaryContainer     = AppGreenLight,
+    onPrimaryContainer   = AppGreenDark,
+    secondary            = Color(0xFFE57373),
+    onSecondary          = Color.White,
+    secondaryContainer   = AppRedContainer,
+    onSecondaryContainer = AppRedDark,
+    error                = AppRedDark,
+    background           = Color(0xFFF8FFF4),
+    surface              = Color(0xFFFFFFFF),
+    surfaceVariant       = Color(0xFFF0F7E8)
 )
 
 @Composable

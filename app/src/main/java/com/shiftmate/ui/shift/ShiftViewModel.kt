@@ -7,9 +7,11 @@ import com.shiftmate.data.repository.ShiftRepository
 import com.shiftmate.domain.model.*
 import com.shiftmate.domain.scheduler.ShiftScheduler
 import com.shiftmate.util.CsvExporter
+import com.shiftmate.util.PdfExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
 
@@ -37,8 +39,10 @@ class ShiftViewModel @Inject constructor(
     private val _violations = MutableStateFlow<List<String>>(emptyList())
     val violations: StateFlow<List<String>> = _violations
 
-    private val _generated = MutableStateFlow(false)
-    val generated: StateFlow<Boolean> = _generated
+    // Derived from entries so it auto-restores after app restart
+    val generated: StateFlow<Boolean> = _entries
+        .map { it.isNotEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
@@ -46,8 +50,9 @@ class ShiftViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             _month.collectLatest { month ->
-                repo.entriesFlow(month.toString()).collect { _entries.value = it }
-                _generated.value = _entries.value.isNotEmpty()
+                repo.entriesFlow(month.toString()).collect { entries ->
+                    _entries.value = entries
+                }
             }
         }
     }
@@ -65,7 +70,7 @@ class ShiftViewModel @Inject constructor(
             return@launch
         }
         if (allBlocks.isEmpty()) {
-            _errorMessage.value = "時間帯（シフト区分）が設定されていません。\n「ルール」タブから早番・遅番などの時間帯を追加してください。"
+            _errorMessage.value = "時間帯（シフト区分）が設定されていません。\n「ルール」タブから時間帯を追加してください。"
             return@launch
         }
 
@@ -74,19 +79,23 @@ class ShiftViewModel @Inject constructor(
         val requests = repo.getRequestsByMonth(month.toString())
 
         val result = scheduler.generate(
-            year = month.year,
-            month = month.monthValue,
-            staff = allStaff,
-            blocks = allBlocks,
-            rule = shiftRule,
-            requests = requests
+            year = month.year, month = month.monthValue,
+            staff = allStaff, blocks = allBlocks, rule = shiftRule, requests = requests
         )
         repo.saveGeneratedShift(result.entries, month.toString())
         _violations.value = result.violations
-        _generated.value = true
+    }
+
+    /** Manually change one cell in the shift table */
+    fun setEntry(staffId: Long, date: LocalDate, blockId: Long?) = viewModelScope.launch {
+        repo.setEntry(staffId, date, blockId)
     }
 
     fun exportCsv(context: Context) = viewModelScope.launch {
         CsvExporter.export(context, _month.value, staff.value, blocks.value, _entries.value)
+    }
+
+    fun exportPdf(context: Context) = viewModelScope.launch {
+        PdfExporter.export(context, _month.value, staff.value, blocks.value, _entries.value)
     }
 }

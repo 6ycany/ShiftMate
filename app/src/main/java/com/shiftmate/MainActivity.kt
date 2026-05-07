@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.shiftmate.ui.navigation.ShiftMateNavHost
+import com.shiftmate.ui.navigation.AppNavHost
 import com.shiftmate.ui.theme.ShiftMateTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ShiftMateTheme {
-                ShiftMateNavHost()
+                AppNavHost()
             }
         }
     }

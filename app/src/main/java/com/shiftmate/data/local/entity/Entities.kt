@@ -84,3 +84,16 @@ data class ShiftEntryEntity(
     val blockId: Long,
     val date: String    // ISO: "2026-05-01"
 )
+
+// ── Saved configuration profiles ─────────────────────────────────
+@Entity(tableName = "shift_profiles")
+data class ShiftProfileEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    // Tab-separated records, newline between items
+    val rolesData: String = "",   // name|colorIndex|hoursPerWeek|daysPerMonth|minPerShift
+    val staffData: String = "",   // name|roleName|wage|maxHours|maxDays
+    val blocksData: String = "",  // name|start|end|required
+    val ruleData: String = ""     // openTime|closeTime|maxConsecDays
+)
